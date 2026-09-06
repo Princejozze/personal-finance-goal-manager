@@ -7,7 +7,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+// Cloud Run / most hosts inject PORT (usually 8080); fall back to 3000 locally.
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: "5mb" }));
 

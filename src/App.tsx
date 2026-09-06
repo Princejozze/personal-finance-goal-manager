@@ -19,15 +19,17 @@ import {
   signInWithGoogle,
   signOutFromGoogle,
   subscribeToAuthChanges,
-  getCachedGoogleAccessToken,
+  getValidGoogleAccessToken,
 } from "./services/auth";
 import {
   loadFromGoogleDrive,
   saveToGoogleDrive,
   loadLocalAppData,
   saveLocalAppData,
+  getInitialDefaultData,
   SyncStatus,
 } from "./services/driveStorage";
+import { runDueAutomations } from "./services/reminderScheduler";
 import { Header } from "./components/Header";
 import { DailyMoneyTracker } from "./components/DailyMoneyTracker";
 import { TitheAndInvestment } from "./components/TitheAndInvestment";
@@ -35,96 +37,6 @@ import { WeekendReview } from "./components/WeekendReview";
 import { GoalHierarchy } from "./components/GoalHierarchy";
 import { EmailReminders } from "./components/EmailReminders";
 import { SettingsView } from "./components/SettingsView";
-
-const INITIAL_SAMPLE_DATA: AppData = {
-  version: 1,
-  lastModified: new Date().toISOString(),
-  lastUpdated: new Date().toISOString(),
-  expenses: [
-    {
-      id: "exp-1",
-      amount: 45.0,
-      date: new Date().toISOString().split("T")[0],
-      purpose: "Weekly groceries & fresh produce",
-      category: "Food & Dining",
-      necessityRating: "Essential",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "exp-2",
-      amount: 14.5,
-      date: new Date().toISOString().split("T")[0],
-      purpose: "Afternoon premium latte and pastry",
-      category: "Food & Dining",
-      necessityRating: "Discretionary",
-      notes: "Impulse coffee break",
-      createdAt: new Date().toISOString(),
-    },
-  ],
-  earnings: [
-    {
-      id: "earn-1",
-      amount: 850.0,
-      date: new Date().toISOString().split("T")[0],
-      source: "Acme Software Corp",
-      jobDescription: "Shipped React dashboard components and cloud integration tests",
-      category: "Freelance / Contract",
-      createdAt: new Date().toISOString(),
-    },
-  ],
-  titheRecords: [],
-  investments: [],
-  goals: [
-    {
-      id: "goal-yr-1",
-      title: "Build $20,000 Liquid Investment & Family Emergency Fortress",
-      tier: "yearly",
-      targetDate: "2026-12-31",
-      status: "pending",
-      description: "Disciplined saving and low-cost ETF investing with faithful tithe stewardship",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "goal-mo-1",
-      parentId: "goal-yr-1",
-      title: "Save & Invest $1,600 this month",
-      tier: "monthly",
-      targetDate: "2026-09-30",
-      status: "pending",
-      description: "Allocate weekly surplus into index funds",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "goal-wk-1",
-      parentId: "goal-mo-1",
-      title: "Deliver client software milestone & audit all weekly expenses",
-      tier: "weekly",
-      targetDate: "2026-09-12",
-      status: "pending",
-      description: "Hit earning target of $1,000+ while keeping wasteful expenses under $30",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "goal-day-1",
-      parentId: "goal-wk-1",
-      title: "Complete API endpoint test suite and log all today's spending",
-      tier: "daily",
-      targetDate: new Date().toISOString().split("T")[0],
-      status: "pending",
-      createdAt: new Date().toISOString(),
-    },
-  ],
-  weeklyReviews: [],
-  settings: {
-    currency: "$",
-    currencySymbol: "$",
-    defaultTithePercent: 10,
-    defaultTithePercentage: 10,
-    reminderEmail: "",
-    notificationEmail: "",
-    autoSyncDrive: true,
-  },
-};
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -134,92 +46,75 @@ export default function App() {
     "finances" | "tithe" | "weekend_review" | "goals" | "reminders" | "settings"
   >("finances");
 
-  const [appData, setAppData] = useState<AppData>(() => {
-    const cached = loadLocalAppData();
-    if (
-      cached &&
-      (cached.expenses.length > 0 ||
-        cached.earnings.length > 0 ||
-        cached.goals.length > 0)
-    ) {
-      return cached;
-    }
-    return INITIAL_SAMPLE_DATA;
-  });
+  const [appData, setAppData] = useState<AppData>(() => loadLocalAppData());
+  const [notice, setNotice] = useState<string | null>(null);
 
   const isInitialMount = useRef(true);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync to Google Drive helper
-  const performDriveSync = useCallback(async (token: string, dataToSave: AppData) => {
+  // Always-current snapshot of appData for use inside async callbacks/timers.
+  const appDataRef = useRef(appData);
+  useEffect(() => {
+    appDataRef.current = appData;
+  }, [appData]);
+
+  // Push local data up to Drive (acquires/refreshes the token itself).
+  const performDriveSync = useCallback(async (dataToSave: AppData) => {
+    const token = await getValidGoogleAccessToken();
+    if (!token) {
+      setSyncStatus({ state: "error", errorMessage: "Google session expired — sign in again." });
+      return;
+    }
     setSyncStatus({ state: "syncing" });
     const result = await saveToGoogleDrive(token, dataToSave);
-    if (result.success) {
-      setSyncStatus({
-        state: "synced",
-        lastSyncedAt: new Date().toLocaleTimeString(),
-      });
-    } else {
-      setSyncStatus({
-        state: "error",
-        errorMessage: result.error,
-      });
-    }
+    setSyncStatus(
+      result.success
+        ? { state: "synced", lastSyncedAt: new Date().toLocaleTimeString() }
+        : { state: "error", errorMessage: result.error }
+    );
   }, []);
 
-  // Listen to Firebase Auth state
+  const hydrateFromDrive = useCallback(async () => {
+    const token = await getValidGoogleAccessToken();
+    if (!token) return;
+    setSyncStatus({ state: "syncing" });
+    const driveData = await loadFromGoogleDrive(token);
+    if (driveData) {
+      setAppData(driveData);
+      saveLocalAppData(driveData);
+      setSyncStatus({ state: "synced", lastSyncedAt: new Date().toLocaleTimeString() });
+    } else {
+      // No file yet — seed Drive with whatever we have locally.
+      await performDriveSync(appDataRef.current);
+    }
+  }, [performDriveSync]);
+
+  // Listen to Firebase Auth state (persists across reloads / devices).
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges(async (currentUser) => {
       setUser(currentUser);
-      if (currentUser) {
-        const token = getCachedGoogleAccessToken();
-        if (token) {
-          // Attempt to pull latest Google Drive data
-          setSyncStatus({ state: "syncing" });
-          const driveData = await loadFromGoogleDrive(token);
-          if (driveData) {
-            setAppData(driveData);
-            saveLocalAppData(driveData);
-            setSyncStatus({
-              state: "synced",
-              lastSyncedAt: new Date().toLocaleTimeString(),
-            });
-          } else {
-            // First time connecting drive: upload local data
-            await performDriveSync(token, appData);
-          }
-        }
-      }
+      if (currentUser) await hydrateFromDrive();
+      else setSyncStatus({ state: "idle" });
     });
-
     return () => unsubscribe();
-  }, [performDriveSync]);
+  }, [hydrateFromDrive]);
 
-  // Autosave locally whenever appData changes, and debounce to Drive
+  // Autosave locally immediately; debounce a Drive push.
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-
-    // Save locally immediately
     saveLocalAppData(appData);
 
-    // Debounced Drive sync
-    const token = getCachedGoogleAccessToken();
-    if (user && token) {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-      }
+    if (user) {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = setTimeout(() => {
-        performDriveSync(token, appData);
+        performDriveSync(appDataRef.current);
       }, 1500);
     }
-
     return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-      }
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
   }, [appData, user, performDriveSync]);
 
@@ -227,22 +122,9 @@ export default function App() {
   const handleLogin = async () => {
     setIsLoggingIn(true);
     try {
-      const { user: authedUser, accessToken } = await signInWithGoogle();
+      const { user: authedUser } = await signInWithGoogle();
       setUser(authedUser);
-      if (accessToken) {
-        setSyncStatus({ state: "syncing" });
-        const driveData = await loadFromGoogleDrive(accessToken);
-        if (driveData) {
-          setAppData(driveData);
-          saveLocalAppData(driveData);
-          setSyncStatus({
-            state: "synced",
-            lastSyncedAt: new Date().toLocaleTimeString(),
-          });
-        } else {
-          await performDriveSync(accessToken, appData);
-        }
-      }
+      await hydrateFromDrive();
     } catch (err: any) {
       console.error("Login failure:", err);
       alert(`Sign in error: ${err.message || "Failed to authenticate"}`);
@@ -258,12 +140,11 @@ export default function App() {
   };
 
   const handleManualSync = async () => {
-    const token = getCachedGoogleAccessToken();
-    if (!token) {
+    if (!user) {
       handleLogin();
       return;
     }
-    await performDriveSync(token, appData);
+    await performDriveSync(appDataRef.current);
   };
 
   // Data Mutation Handlers
@@ -415,40 +296,45 @@ export default function App() {
   const handleImportData = (importedData: AppData) => {
     setAppData(importedData);
     saveLocalAppData(importedData);
-    const token = getCachedGoogleAccessToken();
-    if (token) {
-      performDriveSync(token, importedData);
-    }
+    if (user) performDriveSync(importedData);
   };
 
   const handleClearAllData = () => {
-    const freshData: AppData = {
-      version: 1,
-      lastModified: new Date().toISOString(),
-      lastUpdated: new Date().toISOString(),
-      expenses: [],
-      earnings: [],
-      titheRecords: [],
-      investments: [],
-      goals: [],
-      weeklyReviews: [],
-      settings: {
-        currency: "$",
-        currencySymbol: "$",
-        defaultTithePercent: 10,
-        defaultTithePercentage: 10,
-        reminderEmail: "",
-        notificationEmail: "",
-        autoSyncDrive: true,
-      },
-    };
+    const freshData = getInitialDefaultData();
     setAppData(freshData);
     saveLocalAppData(freshData);
-    const token = getCachedGoogleAccessToken();
-    if (token) {
-      performDriveSync(token, freshData);
-    }
+    if (user) performDriveSync(freshData);
   };
+
+  // --- Self-managing automations (run when opened; re-check periodically) ---
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    const tick = async () => {
+      const data = appDataRef.current;
+      if (!data.settings.autoReminderEnabled && !data.settings.autoWeekendReviewEnabled) {
+        return;
+      }
+      const res = await runDueAutomations(
+        data,
+        user.displayName || user.email?.split("@")[0] || "Friend",
+        user.email
+      );
+      if (cancelled) return;
+      if (res.settingsPatch) handleUpdateSettings(res.settingsPatch);
+      if (res.newReview) handleSaveWeeklyReview(res.newReview);
+      if (res.notices.length) setNotice(res.notices.join(" • "));
+    };
+
+    const startup = setTimeout(tick, 4000); // let Drive hydration settle first
+    const interval = setInterval(tick, 15 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearTimeout(startup);
+      clearInterval(interval);
+    };
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const currency = appData.settings.currencySymbol || "$";
   const defaultTithe = appData.settings.defaultTithePercentage ?? 10;
@@ -466,6 +352,22 @@ export default function App() {
         onSyncDrive={handleManualSync}
         isLoggingIn={isLoggingIn}
       />
+
+      {/* Automation / status notice */}
+      {notice && (
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="flex items-start justify-between gap-3 rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-4 py-2.5 text-xs text-indigo-200">
+            <span>{notice}</span>
+            <button
+              onClick={() => setNotice(null)}
+              className="text-indigo-300 hover:text-white font-bold shrink-0"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main View Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -543,7 +445,7 @@ export default function App() {
             Self-Managing Life & Wealth Assistant • Synchronized with Google Drive & Gmail API
           </span>
           <span className="text-2xs text-slate-500">
-            Powered by Gemini 2.5 Intelligence Engine
+            Powered by Gemini 3.8 Flash Intelligence Engine
           </span>
         </div>
       </footer>

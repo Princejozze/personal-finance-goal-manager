@@ -13,7 +13,7 @@ import { User } from "firebase/auth";
 import { GoalItem } from "../types";
 import { requestDraftReminderEmail } from "../services/geminiClient";
 import { sendEmailViaGmail } from "../services/gmailService";
-import { getCachedGoogleAccessToken } from "../services/auth";
+import { getValidGoogleAccessToken } from "../services/auth";
 import { ConfirmationModal } from "./ConfirmationModal";
 
 interface EmailRemindersProps {
@@ -89,7 +89,7 @@ export const EmailReminders: React.FC<EmailRemindersProps> = ({
     setIsSending(true);
     setSendResult(null);
 
-    const token = getCachedGoogleAccessToken();
+    const token = await getValidGoogleAccessToken();
     if (!token) {
       setSendResult({
         success: false,

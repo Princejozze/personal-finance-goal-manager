@@ -120,6 +120,19 @@ export interface AppSettings {
   reminderEmail: string;
   notificationEmail?: string;
   autoSyncDrive: boolean;
+
+  /** When true, the app auto-sends the AI daily reminder email once per day
+   *  (after `reminderHour`) whenever it is opened and daily tasks are still pending. */
+  autoReminderEnabled?: boolean;
+  /** Hour of day (0-23, local time) after which the daily reminder may be sent. */
+  reminderHour?: number;
+  /** ISO date (YYYY-MM-DD) the daily reminder was last auto-sent — guards against duplicates. */
+  lastAutoReminderDate?: string;
+
+  /** When true, the app auto-generates the Gemini weekend review on Sat/Sun. */
+  autoWeekendReviewEnabled?: boolean;
+  /** ISO week identifier (e.g. "2026-W36") the weekend review was last auto-generated for. */
+  lastAutoWeekendReviewWeek?: string;
 }
 
 export type UserSettings = AppSettings;
