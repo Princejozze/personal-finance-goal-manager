@@ -1,0 +1,6 @@
+{
+  "name": "Personal Finance & Goal Manager",
+  "description": "Self-managing personal finance tracker and goal management web app with Google Drive cloud sync, Gemini AI reviews, tithe calculation, investment proposals, and Gmail reminders.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
