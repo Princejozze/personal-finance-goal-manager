@@ -79,6 +79,7 @@ export interface DraftReminderEmailPayload {
   userName: string;
   pendingTasks: GoalItem[];
   unachievedGoals: GoalItem[];
+  isZeroTasksDay?: boolean;
 }
 
 export interface DraftReminderEmailResponse {
@@ -103,3 +104,68 @@ export const requestDraftReminderEmail = async (
 
   return await res.json();
 };
+
+export interface QuickBriefPayload {
+  userName: string;
+  financialSummary: {
+    totalEarnings: number;
+    totalExpenses: number;
+    tithePaid: number;
+    titheDue: number;
+    totalInvested: number;
+  };
+  goalSummary: {
+    totalGoals: number;
+    pendingDailyCount: number;
+    completedDailyCount: number;
+    unachievedCount: number;
+  };
+}
+
+export const requestQuickBrief = async (payload: QuickBriefPayload): Promise<string> => {
+  const res = await fetch("/api/gemini/quick-brief", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to generate quick executive brief");
+  }
+
+  const data = await res.json();
+  return data.brief;
+};
+
+export interface TaskAnalysisPayload {
+  title: string;
+  description?: string;
+  tier?: string;
+}
+
+export interface TaskAnalysisResponse {
+  targetTime: string | null;
+  timeLabel: string | null;
+  commitmentStrategy: string;
+  prepBuffer: string;
+  suggestedTier: "daily" | "weekly" | "monthly" | "yearly";
+}
+
+export const requestTaskAnalysis = async (
+  payload: TaskAnalysisPayload
+): Promise<TaskAnalysisResponse> => {
+  const res = await fetch("/api/gemini/analyze-task", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to analyze task");
+  }
+
+  return await res.json();
+};
+

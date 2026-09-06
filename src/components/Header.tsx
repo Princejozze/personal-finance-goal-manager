@@ -11,6 +11,9 @@ import {
   AlertCircle,
   LogOut,
   Sliders,
+  BarChart3,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { User } from "firebase/auth";
 import { SyncStatus } from "../services/driveStorage";
@@ -18,8 +21,10 @@ import { SyncStatus } from "../services/driveStorage";
 interface HeaderProps {
   user: User | null;
   syncStatus: SyncStatus;
-  activeTab: "finances" | "tithe" | "weekend_review" | "goals" | "reminders" | "settings";
-  onTabChange: (tab: "finances" | "tithe" | "weekend_review" | "goals" | "reminders" | "settings") => void;
+  activeTab: "finances" | "tithe" | "weekend_review" | "goals" | "reminders" | "analytics" | "settings";
+  theme: "dark" | "light";
+  onToggleTheme: () => void;
+  onTabChange: (tab: "finances" | "tithe" | "weekend_review" | "goals" | "reminders" | "analytics" | "settings") => void;
   onLogin: () => void;
   onLogout: () => void;
   onSyncDrive: () => void;
@@ -30,14 +35,18 @@ export const Header: React.FC<HeaderProps> = ({
   user,
   syncStatus,
   activeTab,
+  theme,
+  onToggleTheme,
   onTabChange,
   onLogin,
   onLogout,
   onSyncDrive,
   isLoggingIn,
 }) => {
+  const isLight = theme === "light";
+
   return (
-    <header className="bg-[#0F0F12] border-b border-white/5 sticky top-0 z-30 shadow-xl">
+    <header className={`${isLight ? "bg-white border-b border-slate-200 text-slate-900" : "bg-[#0F0F12] border-b border-white/5 text-white"} sticky top-0 z-30 shadow-sm transition-colors`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand & Identity */}
@@ -47,24 +56,49 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold tracking-tight text-white leading-tight">
-                  ETHOS <span className="text-indigo-400">FINANCE</span>
+                <h1 className={`text-base sm:text-lg font-bold tracking-tight leading-tight ${isLight ? "text-slate-900" : "text-white"}`}>
+                  ETHOS <span className="text-indigo-500">FINANCE</span>
                 </h1>
                 <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"></span>
                   Drive Cloud
                 </span>
               </div>
-              <p className="text-xs text-slate-400 hidden sm:block">
+              <p className={`text-xs hidden sm:block ${isLight ? "text-slate-500" : "text-slate-400"}`}>
                 Self-managing finances, tithes, investments & goal hierarchy
               </p>
             </div>
           </div>
 
-          {/* Drive Sync Status & User Authentication */}
+          {/* Right Action Icons: Theme Toggle & Drive Sync */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Light / Dark Mode Toggle Button */}
+            <button
+              onClick={onToggleTheme}
+              className={`p-2 rounded-xl border transition-all flex items-center gap-1.5 text-xs font-semibold ${
+                isLight
+                  ? "bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700 shadow-xs"
+                  : "bg-white/5 hover:bg-white/10 border-white/10 text-amber-300"
+              }`}
+              title={isLight ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            >
+              {isLight ? (
+                <>
+                  <Moon className="w-4 h-4 text-indigo-600" />
+                  <span className="hidden md:inline text-xs font-medium">Dark</span>
+                </>
+              ) : (
+                <>
+                  <Sun className="w-4 h-4 text-amber-400" />
+                  <span className="hidden md:inline text-xs font-medium">Light</span>
+                </>
+              )}
+            </button>
+
             {/* Sync Status Badge & Button */}
-            <div className="flex items-center bg-white/5 border border-white/5 rounded-lg px-2.5 py-1 text-xs">
+            <div className={`flex items-center border rounded-lg px-2.5 py-1 text-xs ${
+              isLight ? "bg-slate-100 border-slate-200" : "bg-white/5 border-white/5"
+            }`}>
               <Cloud className="w-3.5 h-3.5 text-slate-400 mr-1.5" />
               {syncStatus.state === "syncing" ? (
                 <span className="flex items-center text-amber-400 font-medium">
@@ -157,12 +191,16 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <nav className="flex space-x-1 sm:space-x-2 overflow-x-auto py-2 border-t border-white/5 scrollbar-none text-xs sm:text-sm">
+        <nav className={`flex space-x-1 sm:space-x-2 overflow-x-auto py-2 border-t ${
+          isLight ? "border-slate-200" : "border-white/5"
+        } scrollbar-none text-xs sm:text-sm`}>
           <button
             onClick={() => onTabChange("finances")}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all ${
               activeTab === "finances"
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 font-semibold"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
             }`}
           >
@@ -175,6 +213,8 @@ export const Header: React.FC<HeaderProps> = ({
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all ${
               activeTab === "tithe"
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 font-semibold"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
             }`}
           >
@@ -183,22 +223,12 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <button
-            onClick={() => onTabChange("weekend_review")}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all ${
-              activeTab === "weekend_review"
-                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 font-semibold"
-                : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>Weekend AI Review</span>
-          </button>
-
-          <button
             onClick={() => onTabChange("goals")}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all ${
               activeTab === "goals"
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 font-semibold"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
             }`}
           >
@@ -207,10 +237,40 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <button
+            onClick={() => onTabChange("analytics")}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-all ${
+              activeTab === "analytics"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                : isLight
+                ? "text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200"
+                : "text-indigo-300 bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/30"
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 text-emerald-400" />
+            <span>Progress & Graphs</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange("weekend_review")}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all ${
+              activeTab === "weekend_review"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 font-semibold"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Weekend AI Review</span>
+          </button>
+
+          <button
             onClick={() => onTabChange("reminders")}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all ${
               activeTab === "reminders"
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 font-semibold"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
             }`}
           >
@@ -223,6 +283,8 @@ export const Header: React.FC<HeaderProps> = ({
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all ${
               activeTab === "settings"
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 font-semibold"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
             }`}
           >

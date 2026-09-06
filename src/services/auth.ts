@@ -42,14 +42,31 @@ GOOGLE_SCOPES.forEach((s) => provider.addScope(s));
 provider.setCustomParameters({ prompt: "consent" });
 
 // ---------------------------------------------------------------------------
-// Token state
+// Token state (persisted to localStorage across reloads)
 // ---------------------------------------------------------------------------
+const TOKEN_STORAGE_KEY = "personal_finance_google_token";
+
 interface TokenState {
   accessToken: string;
   /** epoch ms after which the token must be considered expired */
   expiresAt: number;
 }
-let tokenState: TokenState | null = null;
+
+const loadPersistedToken = (): TokenState | null => {
+  try {
+    const raw = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: TokenState = JSON.parse(raw);
+    if (parsed.accessToken && parsed.expiresAt && Date.now() < parsed.expiresAt) {
+      return parsed;
+    }
+  } catch (e) {
+    console.warn("Could not load persisted Google token:", e);
+  }
+  return null;
+};
+
+let tokenState: TokenState | null = loadPersistedToken();
 let isSigningIn = false;
 
 const setToken = (accessToken: string, expiresInSec: number) => {
@@ -58,6 +75,11 @@ const setToken = (accessToken: string, expiresInSec: number) => {
     // refresh a minute early to avoid edge-of-expiry 401s
     expiresAt: Date.now() + Math.max(0, expiresInSec - 60) * 1000,
   };
+  try {
+    localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokenState));
+  } catch (e) {
+    console.warn("Could not persist Google token:", e);
+  }
 };
 
 const tokenIsFresh = () => !!tokenState && Date.now() < tokenState.expiresAt;
@@ -200,6 +222,11 @@ export const signInWithGoogle = async (): Promise<{
 export const signOutFromGoogle = async (): Promise<void> => {
   await signOut(auth);
   tokenState = null;
+  try {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+  } catch (e) {
+    console.warn("Could not remove stored token on signout:", e);
+  }
 };
 
 /** Synchronous best-effort token — may be stale/expired. Prefer getValidGoogleAccessToken(). */
@@ -207,29 +234,46 @@ export const getCachedGoogleAccessToken = (): string | null =>
   tokenState?.accessToken ?? null;
 
 /**
- * Returns a token that is valid right now, refreshing silently if needed.
- * Returns null if the user is not signed in or a silent refresh is impossible
- * (e.g. third-party cookies blocked) — callers should then prompt a re-sign-in.
+ * Returns a token that is valid right now.
+ * If expired or not present, returns null WITHOUT triggering an unprompted popup,
+ * which modern browsers and sandboxed iframes block automatically.
  */
 export const getValidGoogleAccessToken = async (): Promise<string | null> => {
   if (tokenIsFresh()) return tokenState!.accessToken;
-  if (!auth.currentUser || isSigningIn) return null;
-  try {
-    return await requestGoogleToken(false);
-  } catch (e) {
-    console.warn("Silent Google token refresh failed:", e);
-    return null;
-  }
+  return null;
 };
 
-/** Force an interactive token request (used to recover from a failed silent refresh). */
+/**
+ * Force an interactive token request (triggered from direct user click events,
+ * such as 'Sync Now', 'Re-authenticate', or 'Send Email').
+ */
 export const reauthorizeGoogleAccess = async (): Promise<string | null> => {
+  if (tokenIsFresh()) return tokenState!.accessToken;
+
+  // 1. Try GIS interactive token client
   try {
-    return await requestGoogleToken(true);
+    const token = await requestGoogleToken(true);
+    if (token) return token;
   } catch (e) {
-    console.warn("Interactive Google authorization failed:", e);
-    return null;
+    console.warn("Interactive GIS token request did not complete, falling back to Firebase popup:", e);
   }
+
+  // 2. Fall back to Firebase Google popup (works reliably inside iframe preview environments)
+  try {
+    isSigningIn = true;
+    const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential?.accessToken) {
+      setToken(credential.accessToken, 3600);
+      return credential.accessToken;
+    }
+  } catch (err) {
+    console.error("Firebase reauthorization popup error:", err);
+  } finally {
+    isSigningIn = false;
+  }
+
+  return tokenState?.accessToken ?? null;
 };
 
 // Backwards-compatible aliases used elsewhere in the codebase.

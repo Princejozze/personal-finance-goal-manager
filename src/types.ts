@@ -95,11 +95,17 @@ export interface GoalItem {
   title: string;
   description?: string;
   targetDate: string; // YYYY-MM-DD
+  targetTime?: string; // "HH:MM", e.g. "12:00", "13:00", "16:00"
+  timePreset?: "morning" | "noon" | "afternoon" | "church" | "evening" | "custom";
   status: "pending" | "in_progress" | "completed" | "unachieved";
   completedAt?: string;
+  autoMarkedUnachieved?: boolean;
+  needsReason?: boolean;
   missedReasonCategory?: MissedReasonCategory;
   missedReasonDetails?: string;
   aiSuggestedPivots?: string;
+  commitmentStrategy?: string; // AI Strategy: "How to keep it"
+  prepBuffer?: string; // Recommended prep window
   createdAt: string;
 }
 
@@ -121,6 +127,9 @@ export interface AppSettings {
   notificationEmail?: string;
   autoSyncDrive: boolean;
 
+  /** UI color theme: "dark" or "light". Default is "dark". */
+  theme?: "dark" | "light";
+
   /** When true, the app auto-sends the AI daily reminder email once per day
    *  (after `reminderHour`) whenever it is opened and daily tasks are still pending. */
   autoReminderEnabled?: boolean;
@@ -129,10 +138,20 @@ export interface AppSettings {
   /** ISO date (YYYY-MM-DD) the daily reminder was last auto-sent — guards against duplicates. */
   lastAutoReminderDate?: string;
 
+  /** When true, if NO daily tasks are logged for today, AI sends a check-in: "Are you totally free today?". */
+  autoRemindIfZeroTasks?: boolean;
+  /** ISO date (YYYY-MM-DD) the zero-task email was last sent. */
+  lastZeroTasksPromptDate?: string;
+
   /** When true, the app auto-generates the Gemini weekend review on Sat/Sun. */
   autoWeekendReviewEnabled?: boolean;
   /** ISO week identifier (e.g. "2026-W36") the weekend review was last auto-generated for. */
   lastAutoWeekendReviewWeek?: string;
+
+  /** When true, generated AI reviews and briefs are automatically pushed to user email. */
+  autoEmailAiReviews?: boolean;
+  /** When true, on-demand AI responses (reviews, insights, progress briefs) auto-push to email. */
+  autoPushAiResponseToEmail?: boolean;
 }
 
 export type UserSettings = AppSettings;

@@ -5,11 +5,24 @@
     background-color: #0A0A0B;
     color: #e2e8f0;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
-  /* Dark theme date picker icon adjustment */
-  input[type="date"]::-webkit-calendar-picker-indicator {
+  html.light body {
+    background-color: #f8fafc;
+    color: #0f172a;
+  }
+
+  /* Date & time picker icons adjustment */
+  html.dark input[type="date"]::-webkit-calendar-picker-indicator,
+  html.dark input[type="time"]::-webkit-calendar-picker-indicator {
     filter: invert(0.8);
+    cursor: pointer;
+  }
+
+  html.light input[type="date"]::-webkit-calendar-picker-indicator,
+  html.light input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.2);
     cursor: pointer;
   }
 }

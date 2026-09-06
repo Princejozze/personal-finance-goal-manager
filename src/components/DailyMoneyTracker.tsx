@@ -12,6 +12,8 @@ import {
   CheckCircle,
   AlertCircle,
   ChevronDown,
+  BarChart3,
+  ArrowRight,
 } from "lucide-react";
 import { Expense, Earning, ExpenseCategory, EarningCategory, NecessityRating } from "../types";
 
@@ -19,6 +21,8 @@ interface DailyMoneyTrackerProps {
   expenses: Expense[];
   earnings: Earning[];
   currency: string;
+  theme?: "dark" | "light";
+  onViewAnalytics?: () => void;
   onAddExpense: (expense: Omit<Expense, "id" | "createdAt">) => void;
   onAddEarning: (earning: Omit<Earning, "id" | "createdAt">) => void;
   onDeleteExpense: (id: string) => void;
@@ -53,11 +57,17 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
   expenses,
   earnings,
   currency,
+  theme = "dark",
+  onViewAnalytics,
   onAddExpense,
   onAddEarning,
   onDeleteExpense,
   onDeleteEarning,
 }) => {
+  const isLight = theme === "light";
+  const cardBg = isLight
+    ? "bg-white border-slate-200 text-slate-900 shadow-sm"
+    : "bg-[#141417] border-white/5 text-white shadow-xl";
   const todayStr = new Date().toISOString().split("T")[0];
 
   const [activeForm, setActiveForm] = useState<"expense" | "earning">("expense");
@@ -151,10 +161,41 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Quick Visuals & Analytics Banner */}
+      {onViewAnalytics && (
+        <div
+          className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-3 transition-colors ${
+            isLight
+              ? "bg-indigo-50 border-indigo-200 text-slate-800"
+              : "bg-indigo-950/20 border-indigo-500/20 text-indigo-200"
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md">
+              <BarChart3 className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider">Visual Graphs & Progress Analytics</h4>
+              <p className="text-2xs opacity-80">
+                Visualize daily cash flows, category spending breakdowns, task velocity, and health graphs.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onViewAnalytics}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-indigo-600/20 shrink-0 cursor-pointer"
+          >
+            <span>View Graphs Tab</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Top Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Today's Spent */}
-        <div className="bg-[#141417] rounded-2xl p-5 border border-white/5 shadow-xl">
+        <div className={`rounded-2xl p-5 border ${cardBg}`}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
               Today's Spent
@@ -173,7 +214,7 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
         </div>
 
         {/* Today's Earned */}
-        <div className="bg-[#141417] rounded-2xl p-5 border border-white/5 shadow-xl">
+        <div className={`rounded-2xl p-5 border ${cardBg}`}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
               Today's Earned
@@ -192,7 +233,7 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
         </div>
 
         {/* Today's Net Balance */}
-        <div className="bg-[#141417] rounded-2xl p-5 border border-white/5 shadow-xl">
+        <div className={`rounded-2xl p-5 border ${cardBg}`}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
               Today's Net Flow
@@ -226,20 +267,30 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
       </div>
 
       {/* Main Logging Card */}
-      <div className="bg-[#141417] rounded-2xl border border-white/5 shadow-xl overflow-hidden">
-        <div className="border-b border-white/5 bg-white/[0.02] px-6 py-4 flex items-center justify-between">
+      <div className={`rounded-2xl border shadow-xl overflow-hidden ${cardBg}`}>
+        <div className={`border-b px-6 py-4 flex items-center justify-between ${
+          isLight ? "border-slate-200 bg-slate-50/50" : "border-white/5 bg-white/[0.02]"
+        }`}>
           <div className="flex items-center gap-2">
-            <PlusCircle className="w-4 h-4 text-indigo-400" />
-            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">Log Daily Money Activity</h2>
+            <PlusCircle className="w-4 h-4 text-indigo-500" />
+            <h2 className={`text-xs font-bold uppercase tracking-widest ${isLight ? "text-slate-700" : "text-slate-400"}`}>
+              Log Daily Money Activity
+            </h2>
           </div>
           {/* Segmented Form Switcher */}
-          <div className="inline-flex rounded-lg bg-black/40 p-1 text-xs font-medium border border-white/5">
+          <div className={`inline-flex rounded-lg p-1 text-xs font-medium border ${
+            isLight ? "bg-slate-100 border-slate-200" : "bg-black/40 border-white/5"
+          }`}>
             <button
               type="button"
               onClick={() => setActiveForm("expense")}
-              className={`px-3 py-1 rounded-md transition-all ${
+              className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
                 activeForm === "expense"
-                  ? "bg-rose-500/20 text-rose-300 font-semibold border border-rose-500/30"
+                  ? isLight
+                    ? "bg-rose-500 text-white font-semibold shadow-xs"
+                    : "bg-rose-500/20 text-rose-300 font-semibold border border-rose-500/30"
+                  : isLight
+                  ? "text-slate-600 hover:text-slate-900"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
@@ -248,9 +299,13 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
             <button
               type="button"
               onClick={() => setActiveForm("earning")}
-              className={`px-3 py-1 rounded-md transition-all ${
+              className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
                 activeForm === "earning"
-                  ? "bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30"
+                  ? isLight
+                    ? "bg-emerald-600 text-white font-semibold shadow-xs"
+                    : "bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30"
+                  : isLight
+                  ? "text-slate-600 hover:text-slate-900"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
@@ -265,11 +320,11 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Amount */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                  <label className={`block text-xs font-medium mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>
                     Amount Spent ({currency}) *
                   </label>
                   <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-medium">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-medium">
                       {currency}
                     </span>
                     <input
@@ -280,33 +335,49 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
                       placeholder="0.00"
                       value={expenseAmount}
                       onChange={(e) => setExpenseAmount(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:bg-white/10 focus:outline-hidden focus:ring-1 focus:ring-rose-500 focus:border-rose-500 transition-all font-mono"
+                      className={`w-full pl-8 pr-3 py-2 border rounded-xl text-sm transition-all font-mono focus:outline-hidden focus:ring-1 focus:ring-rose-500 focus:border-rose-500 ${
+                        isLight
+                          ? "bg-white text-slate-900 border-slate-300 placeholder-slate-400"
+                          : "bg-white/5 text-slate-200 border-white/10 placeholder-slate-500 focus:bg-white/10"
+                      }`}
                     />
                   </div>
                 </div>
 
                 {/* Date */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Date *</label>
+                  <label className={`block text-xs font-medium mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>
+                    Date *
+                  </label>
                   <input
                     type="date"
                     required
                     value={expenseDate}
                     onChange={(e) => setExpenseDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-slate-200 focus:bg-white/10 focus:outline-hidden focus:ring-1 focus:ring-rose-500 transition-all"
+                    className={`w-full px-3 py-2 border rounded-xl text-sm transition-all focus:outline-hidden focus:ring-1 focus:ring-rose-500 ${
+                      isLight
+                        ? "bg-white text-slate-900 border-slate-300"
+                        : "bg-white/5 text-slate-200 border-white/10 focus:bg-white/10"
+                    }`}
                   />
                 </div>
 
                 {/* Category */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Category *</label>
+                  <label className={`block text-xs font-medium mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>
+                    Category *
+                  </label>
                   <select
                     value={expenseCategory}
                     onChange={(e) => setExpenseCategory(e.target.value as ExpenseCategory)}
-                    className="w-full px-3 py-2 bg-[#1b1b20] border border-white/10 rounded-xl text-sm text-slate-200 focus:bg-[#22222a] focus:outline-hidden focus:ring-1 focus:ring-rose-500 transition-all"
+                    className={`w-full px-3 py-2 border rounded-xl text-sm transition-all focus:outline-hidden focus:ring-1 focus:ring-rose-500 ${
+                      isLight
+                        ? "bg-white text-slate-900 border-slate-300"
+                        : "bg-[#1b1b20] text-slate-200 border-white/10 focus:bg-[#22222a]"
+                    }`}
                   >
                     {EXPENSE_CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat} className="bg-[#1b1b20] text-slate-200">
+                      <option key={cat} value={cat} className={isLight ? "bg-white text-slate-900" : "bg-[#1b1b20] text-slate-200"}>
                         {cat}
                       </option>
                     ))}
@@ -317,7 +388,7 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Purpose */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                  <label className={`block text-xs font-medium mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>
                     Purpose (What did you use this money for?) *
                   </label>
                   <input
@@ -326,13 +397,17 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
                     placeholder="e.g., Weekly supermarket groceries, Taxi ride to client, Gas refill"
                     value={expensePurpose}
                     onChange={(e) => setExpensePurpose(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:bg-white/10 focus:outline-hidden focus:ring-1 focus:ring-rose-500 transition-all"
+                    className={`w-full px-3 py-2 border rounded-xl text-sm transition-all focus:outline-hidden focus:ring-1 focus:ring-rose-500 ${
+                      isLight
+                        ? "bg-white text-slate-900 border-slate-300 placeholder-slate-400"
+                        : "bg-white/5 text-slate-200 border-white/10 placeholder-slate-500 focus:bg-white/10"
+                    }`}
                   />
                 </div>
 
                 {/* Necessity Rating */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                  <label className={`block text-xs font-medium mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>
                     Necessity Assessment (For AI Weekly Utility Audit)
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -342,15 +417,25 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
                           key={rating}
                           type="button"
                           onClick={() => setExpenseNecessity(rating)}
-                          className={`py-1.5 px-2 text-xs font-medium rounded-lg border transition-all text-center ${
+                          className={`py-1.5 px-2 text-xs font-medium rounded-lg border transition-all text-center cursor-pointer ${
                             expenseNecessity === rating
                               ? rating === "Essential"
-                                ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 font-semibold"
+                                ? isLight
+                                  ? "bg-emerald-100 border-emerald-400 text-emerald-800 font-bold"
+                                  : "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 font-semibold"
                                 : rating === "Useful"
-                                ? "bg-indigo-500/10 border-indigo-500/40 text-indigo-300 font-semibold"
+                                ? isLight
+                                  ? "bg-indigo-100 border-indigo-400 text-indigo-800 font-bold"
+                                  : "bg-indigo-500/10 border-indigo-500/40 text-indigo-300 font-semibold"
                                 : rating === "Discretionary"
-                                ? "bg-amber-500/10 border-amber-500/40 text-amber-300 font-semibold"
+                                ? isLight
+                                  ? "bg-amber-100 border-amber-400 text-amber-800 font-bold"
+                                  : "bg-amber-500/10 border-amber-500/40 text-amber-300 font-semibold"
+                                : isLight
+                                ? "bg-rose-100 border-rose-400 text-rose-800 font-bold"
                                 : "bg-rose-500/10 border-rose-500/40 text-rose-300 font-semibold"
+                              : isLight
+                              ? "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"
                               : "bg-white/5 border-white/5 text-slate-400 hover:bg-white/10"
                           }`}
                         >
@@ -364,7 +449,7 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
 
               {/* Notes */}
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">
+                <label className={`block text-xs font-medium mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>
                   Additional Notes (Optional)
                 </label>
                 <input
@@ -372,14 +457,18 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
                   placeholder="Receipt reference, vendor name, or context"
                   value={expenseNotes}
                   onChange={(e) => setExpenseNotes(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:bg-white/10 focus:outline-hidden focus:ring-1 focus:ring-rose-500 transition-all"
+                  className={`w-full px-3 py-2 border rounded-xl text-sm transition-all focus:outline-hidden focus:ring-1 focus:ring-rose-500 ${
+                    isLight
+                      ? "bg-white text-slate-900 border-slate-300 placeholder-slate-400"
+                      : "bg-white/5 text-slate-200 border-white/10 placeholder-slate-500 focus:bg-white/10"
+                  }`}
                 />
               </div>
 
               <div className="flex justify-end pt-1">
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-lg shadow-rose-600/20 transition-all flex items-center gap-1.5"
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-lg shadow-rose-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <PlusCircle className="w-4 h-4" />
                   Save Expense
@@ -391,11 +480,11 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Amount */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                  <label className={`block text-xs font-medium mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>
                     Amount Earned ({currency}) *
                   </label>
                   <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-medium">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-medium">
                       {currency}
                     </span>
                     <input
@@ -406,33 +495,49 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
                       placeholder="0.00"
                       value={earningAmount}
                       onChange={(e) => setEarningAmount(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:bg-white/10 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 transition-all font-mono"
+                      className={`w-full pl-8 pr-3 py-2 border rounded-xl text-sm transition-all font-mono focus:outline-hidden focus:ring-1 focus:ring-emerald-500 ${
+                        isLight
+                          ? "bg-white text-slate-900 border-slate-300 placeholder-slate-400"
+                          : "bg-white/5 text-slate-200 border-white/10 placeholder-slate-500 focus:bg-white/10"
+                      }`}
                     />
                   </div>
                 </div>
 
                 {/* Date */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Date *</label>
+                  <label className={`block text-xs font-medium mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>
+                    Date *
+                  </label>
                   <input
                     type="date"
                     required
                     value={earningDate}
                     onChange={(e) => setEarningDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-slate-200 focus:bg-white/10 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 transition-all"
+                    className={`w-full px-3 py-2 border rounded-xl text-sm transition-all focus:outline-hidden focus:ring-1 focus:ring-emerald-500 ${
+                      isLight
+                        ? "bg-white text-slate-900 border-slate-300"
+                        : "bg-white/5 text-slate-200 border-white/10 focus:bg-white/10"
+                    }`}
                   />
                 </div>
 
                 {/* Category */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Category *</label>
+                  <label className={`block text-xs font-medium mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>
+                    Category *
+                  </label>
                   <select
                     value={earningCategory}
                     onChange={(e) => setEarningCategory(e.target.value as EarningCategory)}
-                    className="w-full px-3 py-2 bg-[#1b1b20] border border-white/10 rounded-xl text-sm text-slate-200 focus:bg-[#22222a] focus:outline-hidden focus:ring-1 focus:ring-emerald-500 transition-all"
+                    className={`w-full px-3 py-2 border rounded-xl text-sm transition-all focus:outline-hidden focus:ring-1 focus:ring-emerald-500 ${
+                      isLight
+                        ? "bg-white text-slate-900 border-slate-300"
+                        : "bg-[#1b1b20] text-slate-200 border-white/10 focus:bg-[#22222a]"
+                    }`}
                   >
                     {EARNING_CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat} className="bg-[#1b1b20] text-slate-200">
+                      <option key={cat} value={cat} className={isLight ? "bg-white text-slate-900" : "bg-[#1b1b20] text-slate-200"}>
                         {cat}
                       </option>
                     ))}
@@ -443,7 +548,7 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Source / Client */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                  <label className={`block text-xs font-medium mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>
                     Income Source / Client (How did you earn it?) *
                   </label>
                   <input
@@ -452,13 +557,17 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
                     placeholder="e.g., Tech Startup Client, Full-time Employer, Online Consulting"
                     value={earningSource}
                     onChange={(e) => setEarningSource(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:bg-white/10 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 transition-all"
+                    className={`w-full px-3 py-2 border rounded-xl text-sm transition-all focus:outline-hidden focus:ring-1 focus:ring-emerald-500 ${
+                      isLight
+                        ? "bg-white text-slate-900 border-slate-300 placeholder-slate-400"
+                        : "bg-white/5 text-slate-200 border-white/10 placeholder-slate-500 focus:bg-white/10"
+                    }`}
                   />
                 </div>
 
                 {/* Job Description */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                  <label className={`block text-xs font-medium mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>
                     Specific Job Done (What job did I do to earn it?) *
                   </label>
                   <input
@@ -467,14 +576,18 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
                     placeholder="e.g., Developed API endpoints, 40 hours sprint delivery, Sold handcrafted items"
                     value={earningJob}
                     onChange={(e) => setEarningJob(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:bg-white/10 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 transition-all"
+                    className={`w-full px-3 py-2 border rounded-xl text-sm transition-all focus:outline-hidden focus:ring-1 focus:ring-emerald-500 ${
+                      isLight
+                        ? "bg-white text-slate-900 border-slate-300 placeholder-slate-400"
+                        : "bg-white/5 text-slate-200 border-white/10 placeholder-slate-500 focus:bg-white/10"
+                    }`}
                   />
                 </div>
               </div>
 
               {/* Notes */}
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">
+                <label className={`block text-xs font-medium mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>
                   Additional Notes (Optional)
                 </label>
                 <input
@@ -482,14 +595,18 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
                   placeholder="Invoice number, payment method (wire, Stripe, cash), etc."
                   value={earningNotes}
                   onChange={(e) => setEarningNotes(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:bg-white/10 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 transition-all"
+                  className={`w-full px-3 py-2 border rounded-xl text-sm transition-all focus:outline-hidden focus:ring-1 focus:ring-emerald-500 ${
+                    isLight
+                      ? "bg-white text-slate-900 border-slate-300 placeholder-slate-400"
+                      : "bg-white/5 text-slate-200 border-white/10 placeholder-slate-500 focus:bg-white/10"
+                  }`}
                 />
               </div>
 
               <div className="flex justify-end pt-1">
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center gap-1.5"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <PlusCircle className="w-4 h-4" />
                   Save Earning
@@ -501,23 +618,37 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
       </div>
 
       {/* Transaction Stream & Filter Header */}
-      <div className="bg-[#141417] rounded-2xl border border-white/5 shadow-xl overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-white/5 bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className={`rounded-2xl border shadow-xl overflow-hidden ${cardBg}`}>
+        <div className={`p-4 sm:p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+          isLight ? "border-slate-200 bg-slate-50/50" : "border-white/5 bg-white/[0.02]"
+        }`}>
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-slate-300 text-xs uppercase tracking-widest">Transaction Ledger</h3>
-            <span className="text-xs px-2 py-0.5 bg-white/5 border border-white/5 text-slate-400 rounded-full font-mono">
+            <h3 className={`font-bold text-xs uppercase tracking-widest ${isLight ? "text-slate-800" : "text-slate-300"}`}>
+              Transaction Ledger
+            </h3>
+            <span className={`text-xs px-2 py-0.5 border rounded-full font-mono ${
+              isLight ? "bg-slate-100 border-slate-200 text-slate-600" : "bg-white/5 border-white/5 text-slate-400"
+            }`}>
               {combinedTransactions.length} records
             </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             {/* Filter Type */}
-            <div className="inline-flex rounded-lg bg-black/40 border border-white/5 p-1 text-xs font-medium">
+            <div className={`inline-flex rounded-lg border p-1 text-xs font-medium ${
+              isLight ? "bg-slate-100 border-slate-200" : "bg-black/40 border-white/5"
+            }`}>
               <button
                 type="button"
                 onClick={() => setFilterType("all")}
-                className={`px-2.5 py-1 rounded-md transition-all ${
-                  filterType === "all" ? "bg-white/10 text-white shadow-xs font-semibold" : "text-slate-400 hover:text-slate-200"
+                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  filterType === "all"
+                    ? isLight
+                      ? "bg-white text-slate-900 shadow-xs font-bold"
+                      : "bg-white/10 text-white shadow-xs font-semibold"
+                    : isLight
+                    ? "text-slate-600 hover:text-slate-900"
+                    : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 All
@@ -525,8 +656,14 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
               <button
                 type="button"
                 onClick={() => setFilterType("expenses")}
-                className={`px-2.5 py-1 rounded-md transition-all ${
-                  filterType === "expenses" ? "bg-rose-500/20 text-rose-300 font-semibold border border-rose-500/30" : "text-slate-400 hover:text-slate-200"
+                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  filterType === "expenses"
+                    ? isLight
+                      ? "bg-rose-500 text-white font-bold shadow-xs"
+                      : "bg-rose-500/20 text-rose-300 font-semibold border border-rose-500/30"
+                    : isLight
+                    ? "text-slate-600 hover:text-slate-900"
+                    : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 Expenses
@@ -534,8 +671,14 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
               <button
                 type="button"
                 onClick={() => setFilterType("earnings")}
-                className={`px-2.5 py-1 rounded-md transition-all ${
-                  filterType === "earnings" ? "bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30" : "text-slate-400 hover:text-slate-200"
+                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  filterType === "earnings"
+                    ? isLight
+                      ? "bg-emerald-600 text-white font-bold shadow-xs"
+                      : "bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30"
+                    : isLight
+                    ? "text-slate-600 hover:text-slate-900"
+                    : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 Earnings
@@ -547,13 +690,15 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
               type="date"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              className="px-2.5 py-1 text-xs bg-white/5 border border-white/10 rounded-lg text-slate-200"
+              className={`px-2.5 py-1 text-xs border rounded-lg ${
+                isLight ? "bg-white text-slate-900 border-slate-300" : "bg-white/5 border-white/10 text-slate-200"
+              }`}
               title="Filter by exact date"
             />
             {filterDate && (
               <button
                 onClick={() => setFilterDate("")}
-                className="text-xs text-indigo-400 hover:text-indigo-300 underline"
+                className="text-xs text-indigo-500 hover:text-indigo-400 underline cursor-pointer"
               >
                 Clear
               </button>
@@ -567,18 +712,20 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
             No transactions match your filter criteria.
           </div>
         ) : (
-          <div className="divide-y divide-white/5">
+          <div className={`divide-y ${isLight ? "divide-slate-200" : "divide-white/5"}`}>
             {combinedTransactions.map((item) => (
               <div
                 key={item.id}
-                className="p-4 sm:px-6 hover:bg-white/[0.03] transition-colors flex items-start justify-between gap-4"
+                className={`p-4 sm:px-6 transition-colors flex items-start justify-between gap-4 ${
+                  isLight ? "hover:bg-slate-50" : "hover:bg-white/[0.03]"
+                }`}
               >
                 <div className="flex items-start gap-3 min-w-0">
                   <div
                     className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 border ${
                       item.txnType === "earning"
-                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                        : "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                        : "bg-rose-500/10 border-rose-500/20 text-rose-500"
                     }`}
                   >
                     {item.txnType === "earning" ? (
@@ -590,24 +737,26 @@ export const DailyMoneyTracker: React.FC<DailyMoneyTrackerProps> = ({
 
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-white text-sm">
+                      <span className={`font-semibold text-sm ${isLight ? "text-slate-900" : "text-white"}`}>
                         {item.txnType === "earning"
                           ? (item as Earning).source
                           : (item as Expense).purpose}
                       </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-white/5 border border-white/5 text-slate-400">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${
+                        isLight ? "bg-slate-100 border-slate-200 text-slate-600" : "bg-white/5 border-white/5 text-slate-400"
+                      }`}>
                         {item.category}
                       </span>
                       {item.txnType === "expense" && (
                         <span
                           className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${
                             (item as Expense).necessityRating === "Essential"
-                              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
                               : (item as Expense).necessityRating === "Useful"
-                              ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
+                              ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-500"
                               : (item as Expense).necessityRating === "Discretionary"
-                              ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
-                              : "bg-rose-500/10 border-rose-500/20 text-rose-400 font-bold"
+                              ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
+                              : "bg-rose-500/10 border-rose-500/20 text-rose-500 font-bold"
                           }`}
                         >
                           {(item as Expense).necessityRating}

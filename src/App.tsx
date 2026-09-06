@@ -20,6 +20,7 @@ import {
   signOutFromGoogle,
   subscribeToAuthChanges,
   getValidGoogleAccessToken,
+  reauthorizeGoogleAccess,
 } from "./services/auth";
 import {
   loadFromGoogleDrive,
@@ -30,12 +31,14 @@ import {
   SyncStatus,
 } from "./services/driveStorage";
 import { runDueAutomations } from "./services/reminderScheduler";
+import { autoEvaluateTasksDeadline } from "./services/timeTaskHelper";
 import { Header } from "./components/Header";
 import { DailyMoneyTracker } from "./components/DailyMoneyTracker";
 import { TitheAndInvestment } from "./components/TitheAndInvestment";
 import { WeekendReview } from "./components/WeekendReview";
 import { GoalHierarchy } from "./components/GoalHierarchy";
 import { EmailReminders } from "./components/EmailReminders";
+import { ProgressAnalytics } from "./components/ProgressAnalytics";
 import { SettingsView } from "./components/SettingsView";
 
 export default function App() {
@@ -43,7 +46,7 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ state: "idle" });
   const [activeTab, setActiveTab] = useState<
-    "finances" | "tithe" | "weekend_review" | "goals" | "reminders" | "settings"
+    "finances" | "tithe" | "weekend_review" | "goals" | "reminders" | "analytics" | "settings"
   >("finances");
 
   const [appData, setAppData] = useState<AppData>(() => loadLocalAppData());
@@ -76,16 +79,24 @@ export default function App() {
 
   const hydrateFromDrive = useCallback(async () => {
     const token = await getValidGoogleAccessToken();
-    if (!token) return;
+    if (!token) {
+      setSyncStatus({ state: "idle" });
+      return;
+    }
     setSyncStatus({ state: "syncing" });
-    const driveData = await loadFromGoogleDrive(token);
-    if (driveData) {
-      setAppData(driveData);
-      saveLocalAppData(driveData);
-      setSyncStatus({ state: "synced", lastSyncedAt: new Date().toLocaleTimeString() });
-    } else {
-      // No file yet — seed Drive with whatever we have locally.
-      await performDriveSync(appDataRef.current);
+    try {
+      const driveData = await loadFromGoogleDrive(token);
+      if (driveData) {
+        setAppData(driveData);
+        saveLocalAppData(driveData);
+        setSyncStatus({ state: "synced", lastSyncedAt: new Date().toLocaleTimeString() });
+      } else {
+        // No file yet — seed Drive with whatever we have locally.
+        await performDriveSync(appDataRef.current);
+      }
+    } catch (err: any) {
+      console.warn("Drive hydration notice:", err?.message || err);
+      setSyncStatus({ state: "idle" });
     }
   }, [performDriveSync]);
 
@@ -143,6 +154,14 @@ export default function App() {
     if (!user) {
       handleLogin();
       return;
+    }
+    let token = await getValidGoogleAccessToken();
+    if (!token) {
+      token = await reauthorizeGoogleAccess();
+      if (!token) {
+        setSyncStatus({ state: "error", errorMessage: "Google session expired — sign in to reconnect." });
+        return;
+      }
     }
     await performDriveSync(appDataRef.current);
   };
@@ -265,6 +284,9 @@ export default function App() {
           ? {
               ...g,
               status,
+              completedAt: status === "completed" ? new Date().toISOString() : g.completedAt,
+              autoMarkedUnachieved: status === "unachieved" ? (g.autoMarkedUnachieved ?? false) : false,
+              needsReason: status === "unachieved" ? (reasonCategory ? false : (g.needsReason ?? true)) : false,
               missedReasonCategory: reasonCategory ?? g.missedReasonCategory,
               missedReasonDetails: reasonDetails ?? g.missedReasonDetails,
               aiSuggestedPivots: aiPivots ?? g.aiSuggestedPivots,
@@ -292,6 +314,46 @@ export default function App() {
       },
     }));
   };
+
+  const handleToggleTheme = () => {
+    const current = appData.settings.theme || "dark";
+    const nextTheme: "dark" | "light" = current === "light" ? "dark" : "light";
+    handleUpdateSettings({ theme: nextTheme });
+  };
+
+  // Sync theme class to <html> element
+  useEffect(() => {
+    const currentTheme = appData.settings.theme || "dark";
+    const root = document.documentElement;
+    if (currentTheme === "light") {
+      root.classList.add("light");
+      root.classList.remove("dark");
+    } else {
+      root.classList.add("dark");
+      root.classList.remove("light");
+    }
+  }, [appData.settings.theme]);
+
+  // Periodic deadline evaluator for time-based tasks (e.g. noon, 1pm, 4pm)
+  useEffect(() => {
+    const checkDeadlines = () => {
+      setAppData((prev) => {
+        const { updatedGoals, countAutoUnachieved } = autoEvaluateTasksDeadline(prev.goals);
+        if (countAutoUnachieved > 0) {
+          return {
+            ...prev,
+            lastUpdated: new Date().toISOString(),
+            goals: updatedGoals,
+          };
+        }
+        return prev;
+      });
+    };
+
+    checkDeadlines();
+    const interval = setInterval(checkDeadlines, 20000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleImportData = (importedData: AppData) => {
     setAppData(importedData);
@@ -336,16 +398,22 @@ export default function App() {
     };
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const theme = appData.settings.theme || "dark";
+  const isLight = theme === "light";
   const currency = appData.settings.currencySymbol || "$";
   const defaultTithe = appData.settings.defaultTithePercentage ?? 10;
 
   return (
-    <div className="min-h-screen bg-[#0A0A0B] flex flex-col font-sans text-slate-200 selection:bg-indigo-500/30">
+    <div className={`min-h-screen flex flex-col font-sans selection:bg-indigo-500/30 transition-colors duration-200 ${
+      isLight ? "bg-slate-50 text-slate-800" : "bg-[#0A0A0B] text-slate-200"
+    }`}>
       {/* Navigation and Sync Header */}
       <Header
         user={user}
         syncStatus={syncStatus}
         activeTab={activeTab}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
         onTabChange={setActiveTab}
         onLogin={handleLogin}
         onLogout={handleLogout}
@@ -360,7 +428,7 @@ export default function App() {
             <span>{notice}</span>
             <button
               onClick={() => setNotice(null)}
-              className="text-indigo-300 hover:text-white font-bold shrink-0"
+              className="text-indigo-300 hover:text-white font-bold shrink-0 cursor-pointer"
               aria-label="Dismiss"
             >
               ✕
@@ -376,6 +444,8 @@ export default function App() {
             expenses={appData.expenses}
             earnings={appData.earnings}
             currency={currency}
+            theme={theme}
+            onViewAnalytics={() => setActiveTab("analytics")}
             onAddExpense={handleAddExpense}
             onAddEarning={handleAddEarning}
             onDeleteExpense={handleDeleteExpense}
@@ -404,7 +474,9 @@ export default function App() {
             titheRecords={appData.titheRecords}
             weeklyReviews={appData.weeklyReviews}
             currency={currency}
+            theme={theme}
             defaultTithePercent={defaultTithe}
+            userEmail={appData.settings.notificationEmail || user?.email || "giftj964@gmail.com"}
             onSaveReview={handleSaveWeeklyReview}
           />
         )}
@@ -412,6 +484,7 @@ export default function App() {
         {activeTab === "goals" && (
           <GoalHierarchy
             goals={appData.goals}
+            theme={theme}
             onAddGoal={handleAddGoal}
             onUpdateGoalStatus={handleUpdateGoalStatus}
             onDeleteGoal={handleDeleteGoal}
@@ -422,7 +495,20 @@ export default function App() {
           <EmailReminders
             user={user}
             goals={appData.goals}
+            theme={theme}
+            settings={appData.settings}
             defaultNotificationEmail={appData.settings.notificationEmail}
+            onLoginRequest={handleLogin}
+            onUpdateSettings={handleUpdateSettings}
+          />
+        )}
+
+        {activeTab === "analytics" && (
+          <ProgressAnalytics
+            appData={appData}
+            user={user}
+            currency={currency}
+            theme={theme}
             onLoginRequest={handleLogin}
           />
         )}
@@ -431,6 +517,7 @@ export default function App() {
           <SettingsView
             settings={appData.settings}
             appData={appData}
+            theme={theme}
             onUpdateSettings={handleUpdateSettings}
             onImportData={handleImportData}
             onClearAllData={handleClearAllData}
@@ -439,7 +526,9 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 bg-[#0F0F12] py-4 px-6 text-center text-xs text-slate-400">
+      <footer className={`border-t py-4 px-6 text-center text-xs transition-colors duration-200 ${
+        isLight ? "border-slate-200 bg-white text-slate-500" : "border-white/5 bg-[#0F0F12] text-slate-400"
+      }`}>
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>
             Self-Managing Life & Wealth Assistant • Synchronized with Google Drive & Gmail API

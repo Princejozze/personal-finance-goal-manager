@@ -19,9 +19,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   reminderEmail: "",
   notificationEmail: "",
   autoSyncDrive: true,
-  autoReminderEnabled: false,
+  theme: "dark",
+  autoReminderEnabled: true,
   reminderHour: 20,
-  autoWeekendReviewEnabled: false,
+  autoRemindIfZeroTasks: true,
+  autoWeekendReviewEnabled: true,
+  autoEmailAiReviews: true,
+  autoPushAiResponseToEmail: true,
 };
 
 export const getInitialDefaultData = (): AppData => {
